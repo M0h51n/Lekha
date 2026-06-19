@@ -16,8 +16,8 @@ No login. No sign-up. No monthly cost.
 
 Inside, the app is split into three named sections:
 
-- **Osama Khata** — book keeping (Money In, Money Out, Full Ledger)
-- **Mohsin Inventory** — stock and sales (Stock/Sale, Udhaar)
+- **Khata** — book keeping (Money In, Money Out, Full Ledger)
+- **Inventory** — stock and sales (Stock/Sale, Udhaar)
 - **Ahmed** — your reminder helper, who nudges you about money to collect
 
 ---
