@@ -1,5 +1,5 @@
-// Hisaab Kitaab service worker — offline app shell
-const CACHE = "hisaab-v1";
+// Lekha service worker — offline app shell
+const CACHE = "lekha-v1";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(()=>self.skipWaiting()));

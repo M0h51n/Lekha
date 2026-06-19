@@ -6,6 +6,13 @@
     ===================================================================== */
 
 const SHEET_NAME = "Ledger";
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDate_(s){
+  if(!s) return "";
+  const d = new Date(s);
+  if(isNaN(d.getTime())) return String(s);
+  return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear();
+}
 
 // The columns we keep in the sheet, in order.
 const HEADERS = ["id","date","type","name","amount","qty","note","dueDate","phone","paid","synced"];
@@ -153,19 +160,19 @@ function sendDailyReminders() {
     const days = Math.round((due - today) / 86400000);
     const line = `• ${o.name} — Rs ${Number(o.amount).toLocaleString()}`
                + (o.phone ? ` (${o.phone})` : "")
-               + ` — due ${o.dueDate}`;
+               + ` — due ${fmtDate_(o.dueDate)}`;
     if (days < 0) overdue.push(`${line}  [${Math.abs(days)} days late]`);
     else if (days <= 3) soon.push(`${line}  [in ${days} day(s)]`);
   });
 
   if (!overdue.length && !soon.length) return; // nothing to send
 
-  let msg = "Hisaab Kitaab — payments to collect\n\n";
+  let msg = "Ahmed here — payments to collect (Lekha)\n\n";
   if (overdue.length) msg += "OVERDUE:\n" + overdue.join("\n") + "\n\n";
   if (soon.length)    msg += "DUE SOON:\n" + soon.join("\n") + "\n";
 
   const me = Session.getActiveUser().getEmail();
-  MailApp.sendEmail(me, "💰 Payments due — Hisaab Kitaab", msg);
+  MailApp.sendEmail(me, "🔔 Ahmed: Payments due — Lekha", msg);
 }
 
 /* Run this ONCE manually to create the daily 8am trigger. */

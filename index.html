@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1f6f54">
-<title>Hisaab Kitaab</title>
+<title>Lekha</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
@@ -29,6 +29,7 @@
     display:flex;align-items:center;justify-content:space-between;
     position:sticky;top:0;z-index:30;box-shadow:0 3px 0 var(--green-d)}
   header .brand{font-size:22px;font-weight:800;letter-spacing:.3px}
+  header .tagline{font-size:12px;font-weight:700;color:#bfe6d6;margin-top:1px}
   .lang-toggle{display:flex;background:var(--green-d);border-radius:14px;padding:4px;gap:2px}
   .lang-toggle button{background:transparent;color:#cfe6db;font-weight:700;
     font-size:14px;padding:8px 10px;border-radius:10px;min-width:44px}
@@ -193,7 +194,10 @@
 <body>
 
 <header>
-  <div class="brand" id="brandTitle">Hisaab Kitaab</div>
+  <div class="brandwrap">
+    <div class="brand" id="brandTitle">Lekha</div>
+    <div class="tagline" id="tagline">Your family ledger</div>
+  </div>
   <div class="lang-toggle" id="langToggle">
     <button data-lang="en" class="on">EN</button>
     <button data-lang="ur">اردو</button>
@@ -272,11 +276,11 @@
     <div class="list" id="ledgerList"></div>
   </section>
 
-  <!-- DUE / REMINDERS -->
+  <!-- DUE / REMINDERS (Ahmed) -->
   <section class="view" id="view-due">
     <div class="topnav">
       <button class="back" onclick="showView('home')">←</button>
-      <h2 data-t="t_reminders">Payment Reminders</h2>
+      <h2><span data-t="sec_ahmed">Ahmed</span> · <span data-t="t_reminders" style="font-weight:700;font-size:16px;color:var(--muted)">Payment Reminders</span></h2>
     </div>
     <div class="list" id="dueList"></div>
   </section>
@@ -303,7 +307,7 @@ const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
    TRANSLATIONS  (English / Urdu / Roman Urdu)
    ============================================================ */
 const T = {
-  en:{ brand:"Hisaab Kitaab", in:"In", out:"Out", due:"Due",
+  en:{ brand:"Lekha", tag:"Your family ledger", in:"In", out:"Out", due:"Due",
     t_income:"Money In", t_expense:"Money Out", t_stock:"Stock / Sale",
     t_udhaar:"Udhaar", t_ledger:"Full Ledger", t_reminders:"Payment Reminders",
     add:"Add Entry", f_all:"All", f_in:"In", f_out:"Out", f_stock:"Stock", f_owe:"Udhaar",
@@ -320,7 +324,7 @@ const T = {
     sec_khata:"Osama Khata", sec_khata_sub:"Book keeping",
     sec_inv:"Mohsin Inventory", sec_inv_sub:"Stock & sales",
     sec_ahmed:"Ahmed", sec_ahmed_sub:"Reminds you about dues & updates" },
-  ur:{ brand:"حساب کتاب", in:"آمدنی", out:"خرچہ", due:"باقی",
+  ur:{ brand:"لیکھا", tag:"آپ کے خاندان کا کھاتہ", in:"آمدنی", out:"خرچہ", due:"باقی",
     t_income:"رقم وصول", t_expense:"رقم خرچ", t_stock:"اسٹاک / فروخت",
     t_udhaar:"ادھار", t_ledger:"پورا حساب", t_reminders:"ادائیگی یاد دہانی",
     add:"اندراج کریں", f_all:"سب", f_in:"آمدنی", f_out:"خرچہ", f_stock:"اسٹاک", f_owe:"ادھار",
@@ -337,7 +341,7 @@ const T = {
     sec_khata:"اسامہ کھاتہ", sec_khata_sub:"حساب کتاب",
     sec_inv:"محسن انوینٹری", sec_inv_sub:"اسٹاک اور فروخت",
     sec_ahmed:"احمد", sec_ahmed_sub:"واجبات اور اپڈیٹس کی یاد دہانی" },
-  ru:{ brand:"Hisaab Kitaab", in:"Aamdani", out:"Kharcha", due:"Baqi",
+  ru:{ brand:"Lekha", tag:"Aap ke ghar ka khaata", in:"Aamdani", out:"Kharcha", due:"Baqi",
     t_income:"Raqam Wasool", t_expense:"Raqam Kharch", t_stock:"Stock / Farokht",
     t_udhaar:"Udhaar", t_ledger:"Poora Hisaab", t_reminders:"Adaigi Yaad Dahani",
     add:"Andraj Karein", f_all:"Sab", f_in:"Aamdani", f_out:"Kharcha", f_stock:"Stock", f_owe:"Udhaar",
@@ -367,6 +371,7 @@ function applyLang(){
   document.documentElement.lang = LANG==="ur" ? "ur" : "en";
   document.documentElement.dir = LANG==="ur" ? "rtl" : "ltr";
   document.getElementById("brandTitle").textContent = dict.brand;
+  document.getElementById("tagline").textContent = dict.tag;
   document.querySelectorAll("[data-t]").forEach(el=>{
     const k = el.getAttribute("data-t");
     if(dict[k]!==undefined) el.textContent = dict[k];
@@ -497,6 +502,13 @@ function persist(){ localStorage.setItem("entries", JSON.stringify(DB)); }
    RENDER
    ============================================================ */
 function fmt(n){ return "Rs " + Number(n).toLocaleString("en-PK"); }
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDate(s){
+  if(!s) return "";
+  const d = new Date(s);
+  if(isNaN(d.getTime())) return s;
+  return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear();
+}
 function ico(t){ return {in:"💰",out:"🧾",stock:"📦",owe:"⏳"}[t]||"•"; }
 function rowClass(t){ return t==="out"?"out":(t==="owe"?"owe":""); }
 
@@ -547,7 +559,7 @@ function rowHTML(e, showPay){
       : st==="soon" ? `<span class="badge soon">${d.soon}</span>` : "") : "";
   const amtCls = e.type==="in"||e.type==="stock" ? "in" : (e.type==="owe"?"owe":"out");
   const sign = e.type==="out" ? "−" : (e.type==="owe"?"":"+");
-  const sub = [e.note, e.dueDate?("📅 "+e.dueDate):"", e.qty?("×"+e.qty):""].filter(Boolean).join(" · ");
+  const sub = [e.note, e.dueDate?("📅 "+fmtDate(e.dueDate)):"", e.qty?("×"+e.qty):""].filter(Boolean).join(" · ");
   const payBtn = (showPay && e.type==="owe" && !e.paid)
     ? `<button class="back" style="width:auto;padding:0 14px;font-size:14px" onclick="markPaid('${e.id}')">${d.mark_paid}</button>` : "";
   return `<div class="row ${rowClass(e.type)} ${st==='late'?'due-flag':''}">
