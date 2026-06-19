@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1f6f54">
+<title>Hisaab Kitaab</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --ink:#16241f; --paper:#f3efe3; --card:#ffffff;
+    --green:#1f6f54; --green-d:#16513d; --green-l:#e4f0ea;
+    --amber:#d98324; --amber-l:#fbe9d4;
+    --red:#b3261e; --red-l:#fbe3e1;
+    --line:#d9d2bf; --muted:#5f6b63;
+    --tap:84px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    font-size:18px;line-height:1.4;overscroll-behavior:none}
+  body{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+  h1,h2,h3{margin:0;font-weight:800}
+  button{font-family:inherit;cursor:pointer;border:none}
+
+  /* Top bar */
+  header{background:var(--green);color:#fff;padding:14px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:30;box-shadow:0 3px 0 var(--green-d)}
+  header .brand{font-size:22px;font-weight:800;letter-spacing:.3px}
+  .lang-toggle{display:flex;background:var(--green-d);border-radius:14px;padding:4px;gap:2px}
+  .lang-toggle button{background:transparent;color:#cfe6db;font-weight:700;
+    font-size:14px;padding:8px 10px;border-radius:10px;min-width:44px}
+  .lang-toggle button.on{background:#fff;color:var(--green-d)}
+
+  main{flex:1;padding:18px 16px 110px}
+
+  /* Boxie tiles */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tile{background:var(--card);border:3px solid var(--ink);border-radius:22px;
+    box-shadow:6px 6px 0 var(--ink);padding:22px 16px;min-height:140px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    align-items:flex-start;transition:transform .06s,box-shadow .06s}
+  .tile:active{transform:translate(4px,4px);box-shadow:2px 2px 0 var(--ink)}
+  .tile .ico{font-size:46px;line-height:1}
+  .tile .lbl{font-size:20px;font-weight:800;text-align:left}
+  .tile.span2{grid-column:1/-1;flex-direction:row;align-items:center;
+    justify-content:flex-start;gap:18px;min-height:96px}
+  .tile.span2 .ico{font-size:40px}
+  .tile.money{background:var(--green-l)}
+  .tile.spend{background:var(--amber-l)}
+  .tile.stock{background:#e3edf5}
+  .tile.owe{background:var(--red-l)}
+
+  /* Summary band */
+  .summary{display:flex;gap:12px;margin-bottom:18px}
+  .sum-card{flex:1;background:var(--card);border:3px solid var(--ink);
+    border-radius:18px;padding:14px;text-align:center;box-shadow:4px 4px 0 var(--ink)}
+  .sum-card .big{font-size:26px;font-weight:800}
+  .sum-card .cap{font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .sum-card.in .big{color:var(--green)}
+  .sum-card.out .big{color:var(--amber)}
+  .sum-card.due .big{color:var(--red)}
+
+  .section-title{font-size:15px;font-weight:800;color:var(--muted);
+    text-transform:uppercase;letter-spacing:1px;margin:8px 2px 12px}
+
+  /* Lists */
+  .list{display:flex;flex-direction:column;gap:12px}
+  .row{background:var(--card);border:2px solid var(--line);border-radius:16px;
+    padding:14px 16px;display:flex;align-items:center;gap:14px}
+  .row .av{width:46px;height:46px;border-radius:12px;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:24px;
+    background:var(--green-l)}
+  .row.out .av{background:var(--amber-l)}
+  .row.owe .av{background:var(--red-l)}
+  .row .mid{flex:1;min-width:0}
+  .row .nm{font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .sub{font-size:14px;color:var(--muted)}
+  .row .amt{font-weight:800;font-size:19px;white-space:nowrap}
+  .row .amt.in{color:var(--green)}
+  .row .amt.out{color:var(--amber)}
+  .row .amt.owe{color:var(--red)}
+  .row.due-flag{border-color:var(--red);border-width:3px}
+  .badge{display:inline-block;font-size:12px;font-weight:800;padding:3px 9px;
+    border-radius:999px;margin-top:4px}
+  .badge.late{background:var(--red);color:#fff}
+  .badge.soon{background:var(--amber);color:#fff}
+  .badge.paid{background:var(--green);color:#fff}
+
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:17px}
+  .empty .ico{font-size:56px;display:block;margin-bottom:10px;opacity:.5}
+
+  /* FAB */
+  .fab{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    z-index:40;background:var(--green);color:#fff;border:3px solid var(--ink);
+    box-shadow:5px 5px 0 var(--ink);border-radius:18px;
+    padding:16px 26px;font-size:19px;font-weight:800;display:flex;align-items:center;gap:10px}
+  .fab:active{transform:translateX(-50%) translate(3px,3px);box-shadow:2px 2px 0 var(--ink)}
+  .fab .plus{font-size:26px;line-height:1}
+
+  /* Sheet / modal */
+  .scrim{position:fixed;inset:0;background:rgba(22,36,31,.55);z-index:50;
+    display:none;align-items:flex-end;justify-content:center}
+  .scrim.show{display:flex}
+  .sheet{background:var(--paper);width:100%;max-width:520px;
+    border-radius:26px 26px 0 0;border-top:4px solid var(--ink);
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height:92dvh;overflow-y:auto;animation:rise .22s ease}
+  @keyframes rise{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+  .sheet h2{font-size:22px;margin-bottom:4px}
+  .sheet .hint{color:var(--muted);font-size:14px;margin-bottom:16px}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-weight:800;font-size:15px;margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;font-size:18px;
+    padding:14px;border:3px solid var(--ink);border-radius:14px;background:#fff;
+    font-family:inherit}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--green)}
+
+  .typetabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .typetabs button{padding:14px 8px;border:3px solid var(--ink);border-radius:14px;
+    background:#fff;font-weight:800;font-size:15px;display:flex;flex-direction:column;
+    align-items:center;gap:4px}
+  .typetabs button .ti{font-size:24px}
+  .typetabs button.on.in{background:var(--green-l);box-shadow:inset 0 0 0 2px var(--green)}
+  .typetabs button.on.out{background:var(--amber-l);box-shadow:inset 0 0 0 2px var(--amber)}
+  .typetabs button.on.owe{background:var(--red-l);box-shadow:inset 0 0 0 2px var(--red)}
+  .typetabs button.on.stk{background:#e3edf5;box-shadow:inset 0 0 0 2px #3a6ea5}
+
+  .btn-primary{width:100%;background:var(--green);color:#fff;border:3px solid var(--ink);
+    box-shadow:4px 4px 0 var(--ink);border-radius:16px;padding:17px;
+    font-size:19px;font-weight:800;margin-top:6px}
+  .btn-primary:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+  .btn-ghost{width:100%;background:transparent;color:var(--muted);
+    padding:14px;font-size:16px;font-weight:700;margin-top:8px}
+
+  .due-toggle{display:flex;align-items:center;gap:12px;background:#fff;
+    border:3px solid var(--ink);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+  .due-toggle .sw{width:54px;height:32px;border-radius:999px;background:var(--line);
+    position:relative;flex:none;transition:.15s}
+  .due-toggle .sw::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.15s}
+  .due-toggle.on .sw{background:var(--green)}
+  .due-toggle.on .sw::after{left:25px}
+  .due-toggle .txt{font-weight:800;font-size:15px}
+
+  /* Toast / errors (self-correcting) */
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:60;
+    background:var(--ink);color:#fff;padding:14px 18px;border-radius:14px;
+    font-size:15px;font-weight:700;max-width:90%;text-align:center;
+    box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.2s}
+  .toast.show{opacity:1;bottom:120px}
+  .toast.err{background:var(--red)}
+  .toast .fix{display:block;font-weight:600;font-size:13px;margin-top:4px;opacity:.9}
+
+  /* connection chip */
+  .chip{font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px}
+  .chip.ok{background:var(--green-d);color:#bfe6d6}
+  .chip.off{background:var(--amber);color:#3a2300}
+
+  /* nav back */
+  .topnav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .back{background:var(--card);border:3px solid var(--ink);border-radius:14px;
+    width:52px;height:52px;font-size:24px;font-weight:800;display:flex;
+    align-items:center;justify-content:center;box-shadow:3px 3px 0 var(--ink)}
+  .back:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+  .topnav h2{font-size:21px}
+
+  .filter-pills{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+  .filter-pills button{flex:none;background:var(--card);border:2px solid var(--line);
+    border-radius:999px;padding:9px 16px;font-weight:800;font-size:14px}
+  .filter-pills button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .view{display:none}
+  .view.show{display:block}
+
+  /* Section name bands */
+  .sec-band{display:flex;align-items:center;gap:14px;margin:22px 2px 14px;
+    padding:12px 16px;border:3px solid var(--ink);border-radius:18px;
+    box-shadow:4px 4px 0 var(--ink)}
+  .sec-band:first-of-type{margin-top:4px}
+  .sec-band .sec-ico{font-size:30px;line-height:1}
+  .sec-band .sec-name{display:flex;flex-direction:column;line-height:1.15}
+  .sec-band .sec-name span{font-size:20px;font-weight:800}
+  .sec-band .sec-name small{font-size:13px;color:var(--muted);font-weight:700}
+  .sec-band.khata{background:var(--green-l)}
+  .sec-band.inv{background:#e3edf5}
+  .sec-band.ahmed{background:var(--red-l)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" id="brandTitle">Hisaab Kitaab</div>
+  <div class="lang-toggle" id="langToggle">
+    <button data-lang="en" class="on">EN</button>
+    <button data-lang="ur">اردو</button>
+    <button data-lang="ru">Roman</button>
+  </div>
+</header>
+
+<main>
+  <!-- HOME -->
+  <section class="view show" id="view-home">
+    <div class="summary">
+      <div class="sum-card in"><div class="big" id="sumIn">0</div><div class="cap" data-t="in">In</div></div>
+      <div class="sum-card out"><div class="big" id="sumOut">0</div><div class="cap" data-t="out">Out</div></div>
+      <div class="sum-card due"><div class="big" id="sumDue">0</div><div class="cap" data-t="due">Due</div></div>
+    </div>
+
+    <!-- SECTION 1: Osama Khata (book keeping) -->
+    <div class="sec-band khata">
+      <span class="sec-ico">📒</span>
+      <div class="sec-name"><span data-t="sec_khata">Osama Khata</span>
+        <small data-t="sec_khata_sub">Book keeping</small></div>
+    </div>
+    <div class="tiles">
+      <button class="tile money" onclick="openEntry('in')">
+        <span class="ico">💰</span><span class="lbl" data-t="t_income">Money In</span>
+      </button>
+      <button class="tile spend" onclick="openEntry('out')">
+        <span class="ico">🧾</span><span class="lbl" data-t="t_expense">Money Out</span>
+      </button>
+      <button class="tile span2" onclick="showView('ledger')">
+        <span class="ico">📖</span><span class="lbl" data-t="t_ledger">See Full Ledger</span>
+      </button>
+    </div>
+
+    <!-- SECTION 2: Mohsin Inventory (stock & sales) -->
+    <div class="sec-band inv">
+      <span class="sec-ico">📦</span>
+      <div class="sec-name"><span data-t="sec_inv">Mohsin Inventory</span>
+        <small data-t="sec_inv_sub">Stock & sales</small></div>
+    </div>
+    <div class="tiles">
+      <button class="tile stock" onclick="openEntry('stock')">
+        <span class="ico">📦</span><span class="lbl" data-t="t_stock">Stock / Sale</span>
+      </button>
+      <button class="tile owe" onclick="openEntry('owe')">
+        <span class="ico">⏳</span><span class="lbl" data-t="t_udhaar">Udhaar</span>
+      </button>
+    </div>
+
+    <!-- SECTION 3: Ahmed (reminders / notifications) -->
+    <div class="sec-band ahmed">
+      <span class="sec-ico">🔔</span>
+      <div class="sec-name"><span data-t="sec_ahmed">Ahmed</span>
+        <small data-t="sec_ahmed_sub">Reminds you about dues & updates</small></div>
+    </div>
+    <div class="tiles">
+      <button class="tile span2 owe-tile" onclick="showView('due')" style="background:var(--red-l)">
+        <span class="ico">🔔</span><span class="lbl" data-t="t_reminders">Payment Reminders</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- LEDGER -->
+  <section class="view" id="view-ledger">
+    <div class="topnav">
+      <button class="back" onclick="showView('home')">←</button>
+      <h2 data-t="t_ledger">Full Ledger</h2>
+    </div>
+    <div class="filter-pills" id="ledgerFilters">
+      <button class="on" data-f="all" data-t="f_all">All</button>
+      <button data-f="in" data-t="f_in">In</button>
+      <button data-f="out" data-t="f_out">Out</button>
+      <button data-f="stock" data-t="f_stock">Stock</button>
+      <button data-f="owe" data-t="f_owe">Udhaar</button>
+    </div>
+    <div class="list" id="ledgerList"></div>
+  </section>
+
+  <!-- DUE / REMINDERS -->
+  <section class="view" id="view-due">
+    <div class="topnav">
+      <button class="back" onclick="showView('home')">←</button>
+      <h2 data-t="t_reminders">Payment Reminders</h2>
+    </div>
+    <div class="list" id="dueList"></div>
+  </section>
+</main>
+
+<button class="fab" onclick="openEntry('in')">
+  <span class="plus">＋</span><span data-t="add">Add Entry</span>
+</button>
+
+<!-- ENTRY SHEET -->
+<div class="scrim" id="scrim">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG  — paste your Apps Script Web App URL here
+   ============================================================ */
+const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+
+/* ============================================================
+   TRANSLATIONS  (English / Urdu / Roman Urdu)
+   ============================================================ */
+const T = {
+  en:{ brand:"Hisaab Kitaab", in:"In", out:"Out", due:"Due",
+    t_income:"Money In", t_expense:"Money Out", t_stock:"Stock / Sale",
+    t_udhaar:"Udhaar", t_ledger:"Full Ledger", t_reminders:"Payment Reminders",
+    add:"Add Entry", f_all:"All", f_in:"In", f_out:"Out", f_stock:"Stock", f_owe:"Udhaar",
+    name:"Name / Item", amount:"Amount (Rs)", note:"Note (optional)",
+    person:"Customer name", duedate:"Pay-back date", phone:"Customer phone (optional)",
+    qty:"Quantity", save:"Save", cancel:"Cancel", mark_paid:"Mark as Paid",
+    h_in:"Money received", h_out:"Money spent", h_stock:"Stock or sale",
+    h_owe:"Money owed to you",
+    is_due:"Remind me to collect this", saved:"Saved", paid:"Marked paid",
+    empty_ledger:"No entries yet. Tap a box to add your first one.",
+    empty_due:"Nothing pending. All paid up.",
+    late:"OVERDUE", soon:"DUE SOON", offline:"Saved on phone, will sync",
+    online:"Connected", syncing:"Saving...",
+    sec_khata:"Osama Khata", sec_khata_sub:"Book keeping",
+    sec_inv:"Mohsin Inventory", sec_inv_sub:"Stock & sales",
+    sec_ahmed:"Ahmed", sec_ahmed_sub:"Reminds you about dues & updates" },
+  ur:{ brand:"حساب کتاب", in:"آمدنی", out:"خرچہ", due:"باقی",
+    t_income:"رقم وصول", t_expense:"رقم خرچ", t_stock:"اسٹاک / فروخت",
+    t_udhaar:"ادھار", t_ledger:"پورا حساب", t_reminders:"ادائیگی یاد دہانی",
+    add:"اندراج کریں", f_all:"سب", f_in:"آمدنی", f_out:"خرچہ", f_stock:"اسٹاک", f_owe:"ادھار",
+    name:"نام / چیز", amount:"رقم (روپے)", note:"نوٹ (اختیاری)",
+    person:"گاہک کا نام", duedate:"واپسی کی تاریخ", phone:"گاہک کا فون (اختیاری)",
+    qty:"تعداد", save:"محفوظ کریں", cancel:"منسوخ", mark_paid:"ادا شدہ نشان زد کریں",
+    h_in:"وصول شدہ رقم", h_out:"خرچ شدہ رقم", h_stock:"اسٹاک یا فروخت",
+    h_owe:"آپ کو واجب الادا رقم",
+    is_due:"وصولی کی یاد دہانی کرائیں", saved:"محفوظ ہوگیا", paid:"ادا شدہ",
+    empty_ledger:"ابھی کوئی اندراج نہیں۔ شروع کرنے کے لیے باکس دبائیں۔",
+    empty_due:"کچھ باقی نہیں۔ سب ادا ہوگیا۔",
+    late:"میعاد گزر گئی", soon:"جلد واجب", offline:"فون پر محفوظ، بعد میں سنک ہوگا",
+    online:"منسلک", syncing:"محفوظ ہو رہا ہے...",
+    sec_khata:"اسامہ کھاتہ", sec_khata_sub:"حساب کتاب",
+    sec_inv:"محسن انوینٹری", sec_inv_sub:"اسٹاک اور فروخت",
+    sec_ahmed:"احمد", sec_ahmed_sub:"واجبات اور اپڈیٹس کی یاد دہانی" },
+  ru:{ brand:"Hisaab Kitaab", in:"Aamdani", out:"Kharcha", due:"Baqi",
+    t_income:"Raqam Wasool", t_expense:"Raqam Kharch", t_stock:"Stock / Farokht",
+    t_udhaar:"Udhaar", t_ledger:"Poora Hisaab", t_reminders:"Adaigi Yaad Dahani",
+    add:"Andraj Karein", f_all:"Sab", f_in:"Aamdani", f_out:"Kharcha", f_stock:"Stock", f_owe:"Udhaar",
+    name:"Naam / Cheez", amount:"Raqam (Rs)", note:"Note (optional)",
+    person:"Gaahak ka naam", duedate:"Wapsi ki tareekh", phone:"Gaahak ka phone (optional)",
+    qty:"Tadaad", save:"Save Karein", cancel:"Mansookh", mark_paid:"Ada Shuda Karein",
+    h_in:"Wasool shuda raqam", h_out:"Kharch shuda raqam", h_stock:"Stock ya farokht",
+    h_owe:"Aap ko wajib raqam",
+    is_due:"Wasooli ki yaad dilao", saved:"Save hogaya", paid:"Ada shuda",
+    empty_ledger:"Abhi koi andraj nahi. Box dabayein.",
+    empty_due:"Kuch baqi nahi. Sab ada hogaya.",
+    late:"Miyaad guzar gayi", soon:"Jald wajib", offline:"Phone par save, baad mein sync",
+    online:"Connected", syncing:"Save ho raha hai...",
+    sec_khata:"Osama Khata", sec_khata_sub:"Hisaab kitaab",
+    sec_inv:"Mohsin Inventory", sec_inv_sub:"Stock aur farokht",
+    sec_ahmed:"Ahmed", sec_ahmed_sub:"Wajibat aur updates yaad dilata hai" }
+};
+
+let LANG = localStorage.getItem("lang") || "en";
+let DB = JSON.parse(localStorage.getItem("entries") || "[]");
+
+/* ============================================================
+   LANGUAGE
+   ============================================================ */
+function applyLang(){
+  const dict = T[LANG];
+  document.documentElement.lang = LANG==="ur" ? "ur" : "en";
+  document.documentElement.dir = LANG==="ur" ? "rtl" : "ltr";
+  document.getElementById("brandTitle").textContent = dict.brand;
+  document.querySelectorAll("[data-t]").forEach(el=>{
+    const k = el.getAttribute("data-t");
+    if(dict[k]!==undefined) el.textContent = dict[k];
+  });
+  document.querySelectorAll("#langToggle button").forEach(b=>
+    b.classList.toggle("on", b.dataset.lang===LANG));
+  render();
+}
+document.getElementById("langToggle").addEventListener("click",e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  LANG = b.dataset.lang; localStorage.setItem("lang",LANG); applyLang();
+});
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+function showView(v){
+  document.querySelectorAll(".view").forEach(s=>s.classList.remove("show"));
+  document.getElementById("view-"+v).classList.add("show");
+  document.querySelector(".fab").style.display = (v==="home") ? "flex" : "none";
+  window.scrollTo(0,0);
+}
+
+/* ============================================================
+   ENTRY SHEET
+   ============================================================ */
+let entryType = "in";
+function openEntry(type){
+  entryType = type;
+  const d = T[LANG];
+  const head = {in:d.h_in, out:d.h_out, stock:d.h_stock, owe:d.h_owe}[type];
+  let extra = "";
+  if(type==="stock"){
+    extra = `<div class="field"><label>${d.qty}</label>
+      <input id="f_qty" type="number" inputmode="numeric" placeholder="1"></div>`;
+  }
+  if(type==="owe"){
+    extra = `
+      <div class="field"><label>${d.duedate}</label>
+        <input id="f_due" type="date"></div>
+      <div class="field"><label>${d.phone}</label>
+        <input id="f_phone" type="tel" inputmode="tel" placeholder="03xx-xxxxxxx"></div>`;
+  }
+  const nameLabel = (type==="owe") ? d.person : d.name;
+
+  document.getElementById("sheet").innerHTML = `
+    <h2>${head}</h2>
+    <div class="hint"></div>
+    <div class="typetabs" id="typetabs">
+      <button class="${type==='in'?'on in':''}" data-ty="in"><span class="ti">💰</span>${d.t_income}</button>
+      <button class="${type==='out'?'on out':''}" data-ty="out"><span class="ti">🧾</span>${d.t_expense}</button>
+      <button class="${type==='stock'?'on stk':''}" data-ty="stock"><span class="ti">📦</span>${d.t_stock}</button>
+      <button class="${type==='owe'?'on owe':''}" data-ty="owe"><span class="ti">⏳</span>${d.t_udhaar}</button>
+    </div>
+    <div class="field"><label>${nameLabel}</label>
+      <input id="f_name" type="text" autocomplete="off" placeholder="${nameLabel}"></div>
+    <div class="field"><label>${d.amount}</label>
+      <input id="f_amt" type="number" inputmode="decimal" placeholder="0"></div>
+    ${extra}
+    <div class="field"><label>${d.note}</label>
+      <input id="f_note" type="text" autocomplete="off"></div>
+    <button class="btn-primary" onclick="saveEntry()">${d.save}</button>
+    <button class="btn-ghost" onclick="closeSheet()">${d.cancel}</button>
+  `;
+  document.getElementById("typetabs").addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(b) openEntry(b.dataset.ty);
+  });
+  document.getElementById("scrim").classList.add("show");
+  setTimeout(()=>document.getElementById("f_name").focus(),100);
+}
+function closeSheet(){ document.getElementById("scrim").classList.remove("show"); }
+document.getElementById("scrim").addEventListener("click",e=>{
+  if(e.target.id==="scrim") closeSheet();
+});
+
+/* ============================================================
+   SAVE — with self-correcting validation messages
+   ============================================================ */
+function saveEntry(){
+  const name = document.getElementById("f_name").value.trim();
+  const amtRaw = document.getElementById("f_amt").value.trim();
+
+  if(!name){
+    toast("Please enter a name first.", "Example: \"Ali Traders\" or \"Diesel\"", true);
+    return;
+  }
+  const amt = Number(amtRaw);
+  if(amtRaw==="" || isNaN(amt)){
+    toast("Amount must be a number.", "You typed \""+amtRaw+"\". Try: 1500", true);
+    return;
+  }
+  if(amt < 0){
+    toast("Amount can't be negative.", "Use Money Out for expenses instead.", true);
+    return;
+  }
+
+  const entry = {
+    id: Date.now()+"-"+Math.random().toString(36).slice(2,7),
+    type: entryType,
+    name, amount: amt,
+    qty: entryType==="stock" ? Number(document.getElementById("f_qty")?.value||0) : "",
+    note: document.getElementById("f_note").value.trim(),
+    dueDate: entryType==="owe" ? (document.getElementById("f_due")?.value||"") : "",
+    phone: entryType==="owe" ? (document.getElementById("f_phone")?.value.trim()||"") : "",
+    paid: false,
+    date: new Date().toISOString(),
+    synced: false
+  };
+
+  DB.unshift(entry);
+  persist();
+  closeSheet();
+  toast(T[LANG].saved, "", false);
+  render();
+  syncOne(entry);
+}
+
+function markPaid(id){
+  const e = DB.find(x=>x.id===id); if(!e) return;
+  e.paid = true; e.synced = false;
+  persist(); render(); toast(T[LANG].paid,"",false);
+  syncOne(e, true);
+}
+
+function persist(){ localStorage.setItem("entries", JSON.stringify(DB)); }
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function fmt(n){ return "Rs " + Number(n).toLocaleString("en-PK"); }
+function ico(t){ return {in:"💰",out:"🧾",stock:"📦",owe:"⏳"}[t]||"•"; }
+function rowClass(t){ return t==="out"?"out":(t==="owe"?"owe":""); }
+
+function dueStatus(e){
+  if(e.type!=="owe" || e.paid || !e.dueDate) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(e.dueDate); due.setHours(0,0,0,0);
+  const days = Math.round((due-today)/86400000);
+  if(days < 0) return "late";
+  if(days <= 3) return "soon";
+  return null;
+}
+
+function render(){
+  const d = T[LANG];
+  // summary
+  let tin=0,tout=0,tdue=0;
+  DB.forEach(e=>{
+    if(e.type==="in") tin+=e.amount;
+    else if(e.type==="out") tout+=e.amount;
+    else if(e.type==="stock") tin+=e.amount;
+    if(e.type==="owe" && !e.paid) tdue+=e.amount;
+  });
+  document.getElementById("sumIn").textContent = (tin/1000>=1? (tin/1000).toFixed(0)+"k":tin);
+  document.getElementById("sumOut").textContent = (tout/1000>=1? (tout/1000).toFixed(0)+"k":tout);
+  document.getElementById("sumDue").textContent = (tdue/1000>=1? (tdue/1000).toFixed(0)+"k":tdue);
+
+  // ledger
+  const filt = document.querySelector("#ledgerFilters .on")?.dataset.f || "all";
+  const items = DB.filter(e=> filt==="all" || e.type===filt);
+  const ll = document.getElementById("ledgerList");
+  ll.innerHTML = items.length ? items.map(rowHTML).join("") :
+    `<div class="empty"><span class="ico">📖</span>${d.empty_ledger}</div>`;
+
+  // due
+  const dueItems = DB.filter(e=> e.type==="owe" && !e.paid);
+  const dl = document.getElementById("dueList");
+  dl.innerHTML = dueItems.length ? dueItems.map(e=>rowHTML(e,true)).join("") :
+    `<div class="empty"><span class="ico">✅</span>${d.empty_due}</div>`;
+}
+
+function rowHTML(e, showPay){
+  const d = T[LANG];
+  const st = dueStatus(e);
+  const badge = e.type==="owe" ? (e.paid
+      ? `<span class="badge paid">✓</span>`
+      : st==="late" ? `<span class="badge late">${d.late}</span>`
+      : st==="soon" ? `<span class="badge soon">${d.soon}</span>` : "") : "";
+  const amtCls = e.type==="in"||e.type==="stock" ? "in" : (e.type==="owe"?"owe":"out");
+  const sign = e.type==="out" ? "−" : (e.type==="owe"?"":"+");
+  const sub = [e.note, e.dueDate?("📅 "+e.dueDate):"", e.qty?("×"+e.qty):""].filter(Boolean).join(" · ");
+  const payBtn = (showPay && e.type==="owe" && !e.paid)
+    ? `<button class="back" style="width:auto;padding:0 14px;font-size:14px" onclick="markPaid('${e.id}')">${d.mark_paid}</button>` : "";
+  return `<div class="row ${rowClass(e.type)} ${st==='late'?'due-flag':''}">
+      <div class="av">${ico(e.type)}</div>
+      <div class="mid">
+        <div class="nm">${escapeHtml(e.name)}</div>
+        <div class="sub">${escapeHtml(sub)}</div>${badge}
+      </div>
+      <div class="amt ${amtCls}">${sign}${fmt(e.amount)}</div>
+      ${payBtn}
+    </div>`;
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+document.getElementById("ledgerFilters").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  document.querySelectorAll("#ledgerFilters button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); render();
+});
+
+/* ============================================================
+   TOAST  (also used for self-correcting errors)
+   ============================================================ */
+let toastTimer;
+function toast(msg, fix, isErr){
+  const t = document.getElementById("toast");
+  t.innerHTML = escapeHtml(msg) + (fix?`<span class="fix">${escapeHtml(fix)}</span>`:"");
+  t.className = "toast show" + (isErr?" err":"");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), isErr?4500:2200);
+}
+
+/* ============================================================
+   SYNC to Google Sheets (best-effort; offline-safe)
+   ============================================================ */
+async function syncOne(entry, isUpdate){
+  if(!API_URL || API_URL.includes("PASTE_")) return; // not configured yet
+  try{
+    await fetch(API_URL, {
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"}, // avoids CORS preflight
+      body: JSON.stringify({action: isUpdate?"update":"add", entry})
+    });
+    entry.synced = true; persist();
+  }catch(err){
+    // stays unsynced; will retry on next sync sweep
+    entry.synced = false; persist();
+  }
+}
+async function syncSweep(){
+  if(!API_URL || API_URL.includes("PASTE_")) return;
+  const pending = DB.filter(e=>!e.synced);
+  for(const e of pending){ await syncOne(e, e.paid); }
+}
+window.addEventListener("online", syncSweep);
+setInterval(syncSweep, 60000);
+
+/* ============================================================
+   PWA service worker
+   ============================================================ */
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+
+/* boot */
+applyLang();
+syncSweep();
+</script>
+</body>
+</html>
