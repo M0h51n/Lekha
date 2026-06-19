@@ -1,0 +1,37 @@
+# Netlify Configuration for Lekha App
+
+[build]
+  # Since this is a static site, no build command is needed
+  # All files in the root directory are deployed as-is
+  publish = "."
+
+# Redirect all 404s to index.html for single-page app routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache headers for static assets
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "*.{js,css,json,woff2}"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.{png,jpg,jpeg,gif,svg,ico}"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
