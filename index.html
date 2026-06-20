@@ -663,15 +663,83 @@ async function syncSweep(){
   for(const e of pending){ await syncOne(e, e.paid); }
   refreshChip();
 }
+
+/* ============================================================
+   PULL FROM SHEET — make the Google Sheet the source of truth.
+   Merges sheet rows into local DB by id. Local entries that
+   haven't synced yet are preserved (and pushed on next sweep).
+   ============================================================ */
+async function pullFromSheet(){
+  if(!API_URL || API_URL.includes("PASTE_")){ refreshChip(); return; }
+  setSync("busy","Loading…");
+  try{
+    const res = await fetch(API_URL + (API_URL.includes("?")?"&":"?") + "action=list",
+                            {redirect:"follow"});
+    const txt = await res.text();
+    if(!txt.trim().startsWith("{")){ refreshChip(); return; } // not public / error
+    const data = JSON.parse(txt);
+    if(!data.ok || !Array.isArray(data.entries)){ refreshChip(); return; }
+
+    // index local by id
+    const localById = {};
+    DB.forEach(e => localById[e.id] = e);
+
+    // start from sheet rows (source of truth), normalised to app shape
+    const merged = [];
+    const seen = {};
+    data.entries.forEach(r => {
+      if(!r.id) return;
+      seen[r.id] = true;
+      const local = localById[r.id];
+      // if a local copy is still unsynced, prefer local (it has newer edits
+      // not yet pushed); otherwise trust the sheet
+      if(local && local.synced === false){
+        merged.push(local);
+      } else {
+        merged.push({
+          id: r.id,
+          type: r.type,
+          name: r.name,
+          amount: Number(r.amount)||0,
+          qty: r.qty===""||r.qty==null ? "" : r.qty,
+          note: r.note||"",
+          dueDate: r.dueDate||"",
+          phone: r.phone!=null ? String(r.phone) : "",
+          paid: r.paid===true || String(r.paid).toUpperCase()==="YES",
+          date: r.date || new Date().toISOString(),
+          synced: true
+        });
+      }
+    });
+
+    // keep any local-only entries the sheet doesn't have yet (not pushed)
+    DB.forEach(e => { if(!seen[e.id]) merged.push(e); });
+
+    // newest first by date
+    merged.sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+    DB = merged;
+    persist();
+    render();
+    refreshChip();
+    // push anything still pending
+    await syncSweep();
+  }catch(err){
+    refreshChip(); // offline -> keep local as-is
+  }
+}
+
 function manualSync(){
   if(!API_URL || API_URL.includes("PASTE_")){
     toast("Not connected to a Sheet.","Paste your /exec URL into API_URL.", true); return;
   }
-  if(pendingCount()===0){ testConnection(); }
-  else { setSync("busy","Saving…"); syncSweep(); }
+  setSync("busy","Syncing…");
+  pullFromSheet(); // pull then push, full two-way sync
 }
 window.addEventListener("online", syncSweep);
 setInterval(syncSweep, 60000);
+// periodically refresh from sheet so multiple devices stay in step
+setInterval(pullFromSheet, 120000);
 
 /* ============================================================
    CONNECTION SELF-TEST  (call testConnection() from console,
@@ -807,10 +875,11 @@ if("serviceWorker" in navigator){
 applyLang();
 refreshChip();
 refreshRemindBadge();
-syncSweep();
+render();
 scheduleEvening();
-// silent connection probe shortly after load (only warns if misconfigured)
-if(API_URL && !API_URL.includes("PASTE_")) setTimeout(testConnection, 1500);
+// load the full ledger from the sheet (source of truth), then push any pending
+if(API_URL && !API_URL.includes("PASTE_")) pullFromSheet();
+else refreshChip();
 </script>
 </body>
 </html>
