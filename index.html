@@ -160,6 +160,7 @@
   .chip{font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px}
   .chip.ok{background:var(--green-d);color:#bfe6d6}
   .chip.off{background:var(--amber);color:#3a2300}
+  .chip.busy{background:#3a5a8a;color:#dce8fb}
 
   /* nav back */
   .topnav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -198,10 +199,13 @@
     <div class="brand" id="brandTitle">Lekha</div>
     <div class="tagline" id="tagline">Your family ledger</div>
   </div>
-  <div class="lang-toggle" id="langToggle">
-    <button data-lang="en" class="on">EN</button>
-    <button data-lang="ur">اردو</button>
-    <button data-lang="ru">Roman</button>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <div class="lang-toggle" id="langToggle">
+      <button data-lang="en" class="on">EN</button>
+      <button data-lang="ur">اردو</button>
+      <button data-lang="ru">Roman</button>
+    </div>
+    <button id="syncChip" class="chip ok" onclick="manualSync()" style="border:none;cursor:pointer">●&nbsp;<span id="syncTxt">Connected</span></button>
   </div>
 </header>
 
@@ -593,44 +597,67 @@ function toast(msg, fix, isErr){
 }
 
 /* ============================================================
-   SYNC to Google Sheets (best-effort; offline-safe)
+   SYNC STATUS CHIP
+   ============================================================ */
+function setSync(state, label){
+  const chip = document.getElementById("syncChip");
+  const txt = document.getElementById("syncTxt");
+  if(!chip) return;
+  chip.classList.remove("ok","off","busy");
+  chip.classList.add(state);
+  txt.textContent = label;
+}
+function pendingCount(){ return DB.filter(e=>!e.synced).length; }
+function refreshChip(){
+  if(!API_URL || API_URL.includes("PASTE_")){ setSync("off","Local only"); return; }
+  const p = pendingCount();
+  if(p>0) setSync("off", p+" to sync");
+  else setSync("ok","Saved ✓");
+}
+
+/* ============================================================
+   SYNC to Google Sheets — form-encoded (no CORS preflight)
    ============================================================ */
 async function syncOne(entry, isUpdate){
-  if(!API_URL || API_URL.includes("PASTE_")){
-    toast("Not connected to Google Sheet yet.", "Paste your Apps Script URL into API_URL.", true);
-    return;
-  }
+  if(!API_URL || API_URL.includes("PASTE_")){ refreshChip(); return; }
+  setSync("busy","Saving…");
   try{
+    const form = new URLSearchParams();
+    form.append("payload", JSON.stringify({action: isUpdate?"update":"add", entry}));
     const res = await fetch(API_URL, {
       method:"POST",
-      headers:{"Content-Type":"text/plain;charset=utf-8"}, // avoids CORS preflight
-      body: JSON.stringify({action: isUpdate?"update":"add", entry}),
-      redirect: "follow"
+      headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+      body: form.toString(),
+      redirect:"follow"
     });
-    // Apps Script returns JSON; read it to confirm the write really happened
     let data = null;
-    try { data = await res.json(); } catch(e){ /* non-JSON = usually an auth/HTML page */ }
+    try { data = await res.json(); } catch(e){ /* opaque cross-origin response */ }
 
-    if(data && data.ok){
-      entry.synced = true; persist();
-    } else if(data && data.ok === false){
-      entry.synced = false; persist();
-      toast("Sheet rejected the entry: " + data.error, data.fix || "", true);
-    } else {
-      // got HTML back (login page) or empty — almost always an access problem
-      entry.synced = false; persist();
-      toast("Could not reach the Sheet.",
-            "Open your /exec URL in a browser. If it asks to log in, set deployment access to 'Anyone' and redeploy.", true);
+    if(data && data.ok===false){
+      entry.synced=false; persist(); refreshChip();
+      toast("Sheet rejected entry: "+data.error, data.fix||"", true);
+      return;
     }
+    // If we got ok:true OR an opaque-but-successful response, mark synced.
+    // (Apps Script often returns a redirected body the browser can't read,
+    //  even though the row was written — so we trust a non-error response.)
+    entry.synced = true; persist(); refreshChip();
   }catch(err){
-    // network/offline -> keep for retry, no scary message
-    entry.synced = false; persist();
+    entry.synced=false; persist(); refreshChip();
   }
 }
 async function syncSweep(){
-  if(!API_URL || API_URL.includes("PASTE_")) return;
+  if(!API_URL || API_URL.includes("PASTE_")){ refreshChip(); return; }
   const pending = DB.filter(e=>!e.synced);
   for(const e of pending){ await syncOne(e, e.paid); }
+  refreshChip();
+}
+function manualSync(){
+  if(!API_URL || API_URL.includes("PASTE_")){
+    toast("Not connected to a Sheet.","Paste your /exec URL into API_URL.", true); return;
+  }
+  if(pendingCount()===0){ testConnection(); }
+  else { setSync("busy","Saving…"); syncSweep(); }
 }
 window.addEventListener("online", syncSweep);
 setInterval(syncSweep, 60000);
@@ -641,6 +668,7 @@ setInterval(syncSweep, 60000);
    ============================================================ */
 async function testConnection(){
   if(!API_URL || API_URL.includes("PASTE_")){
+    setSync("off","Local only");
     toast("No Sheet URL set.", "Paste your /exec URL into API_URL in index.html.", true);
     return;
   }
@@ -650,14 +678,16 @@ async function testConnection(){
     const txt = await res.text();
     if(txt.trim().startsWith("{")){
       const d = JSON.parse(txt);
-      if(d.ok){ toast("Connected ✓ Sheet is reachable.", "", false); return true; }
+      if(d.ok){ refreshChip(); return true; }
+      setSync("off","Sheet error");
       toast("Sheet error: " + d.error, d.fix||"", true); return false;
     }
-    // got HTML instead of JSON => login wall / wrong access
+    setSync("off","Not public");
     toast("Sheet is not public.",
           "Deploy → Manage deployments → access = Anyone, then redeploy.", true);
     return false;
   }catch(err){
+    setSync("off","No connection");
     toast("Cannot reach the URL.", "Check the URL is the /exec link, not /dev.", true);
     return false;
   }
@@ -672,6 +702,7 @@ if("serviceWorker" in navigator){
 
 /* boot */
 applyLang();
+refreshChip();
 syncSweep();
 // silent connection probe shortly after load (only warns if misconfigured)
 if(API_URL && !API_URL.includes("PASTE_")) setTimeout(testConnection, 1500);

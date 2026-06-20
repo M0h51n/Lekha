@@ -42,19 +42,33 @@ function jsonOut_(obj) {
    ===================================================================== */
 function doPost(e) {
   try {
-    if (!e || !e.postData || !e.postData.contents) {
+    if (!e) {
+      return jsonOut_({ ok:false,
+        error:"No data received.",
+        fix:"The app sent an empty request. Re-open the app and try saving again." });
+    }
+
+    // Accept payload either as raw JSON body OR as a form param "payload".
+    // The form-param path avoids CORS preflight and works reliably from browsers.
+    let raw = "";
+    if (e.parameter && e.parameter.payload) {
+      raw = e.parameter.payload;
+    } else if (e.postData && e.postData.contents) {
+      raw = e.postData.contents;
+    }
+    if (!raw) {
       return jsonOut_({ ok:false,
         error:"No data received.",
         fix:"The app sent an empty request. Re-open the app and try saving again." });
     }
 
     let body;
-    try { body = JSON.parse(e.postData.contents); }
+    try { body = JSON.parse(raw); }
     catch (parseErr) {
       return jsonOut_({ ok:false,
         error:"Data was not valid JSON.",
         fix:'Expected something like {"action":"add","entry":{...}}. Got: '
-            + String(e.postData.contents).slice(0,80) });
+            + String(raw).slice(0,80) });
     }
 
     const entry = body.entry || {};
