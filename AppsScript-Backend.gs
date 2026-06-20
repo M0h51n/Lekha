@@ -98,7 +98,12 @@ function doPost(e) {
     }
 
     const sh = getSheet_();
-    const ids = sh.getRange(2,1,Math.max(sh.getLastRow()-1,0),1).getValues().flat();
+    const lastRow = sh.getLastRow();
+    // Only read existing IDs if there is at least one data row (row 2+).
+    // getRange with 0 rows throws "number of rows must be at least 1".
+    const ids = lastRow >= 2
+      ? sh.getRange(2, 1, lastRow - 1, 1).getValues().flat()
+      : [];
     const rowIndex = ids.indexOf(entry.id); // 0-based within data rows
 
     const rowData = HEADERS.map(h => {
