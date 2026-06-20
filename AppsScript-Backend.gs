@@ -194,11 +194,65 @@ function sendDailyReminders() {
   MailApp.sendEmail(me, "🔔 Ahmed: Payments due — Lekha", msg);
 }
 
-/* Run this ONCE manually to create the daily 8am trigger. */
+/* =====================================================================
+   END-OF-DAY REMINDER — runs at 8 PM, nudges you to log any entries
+   you may have missed and to recheck the day's ledger.
+   ===================================================================== */
+function sendEveningReminder() {
+  const sh = getSheet_();
+  const last = sh.getLastRow();
+
+  // Count how many entries were recorded today (by the date column).
+  let todayCount = 0, todayIn = 0, todayOut = 0;
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (last >= 2) {
+    const rows = sh.getRange(2, 1, last - 1, HEADERS.length).getValues();
+    rows.forEach(r => {
+      const o = {}; HEADERS.forEach((h,i)=> o[h] = r[i]);
+      const d = new Date(o.date);
+      if (isNaN(d.getTime())) return;
+      d.setHours(0,0,0,0);
+      if (d.getTime() === today.getTime()) {
+        todayCount++;
+        if (o.type === "in" || o.type === "stock") todayIn += Number(o.amount)||0;
+        else if (o.type === "out") todayOut += Number(o.amount)||0;
+      }
+    });
+  }
+
+  let msg = "Ahmed here — end of day check (Lekha)\n\n";
+  if (todayCount === 0) {
+    msg += "No entries were recorded today.\n"
+         + "If business happened, please open Lekha and add today's "
+         + "income, expenses, stock or udhaar before you forget.\n";
+  } else {
+    msg += "Today you recorded " + todayCount + " entr"
+         + (todayCount === 1 ? "y" : "ies") + ".\n"
+         + "Money in: Rs " + todayIn.toLocaleString()
+         + "  |  Money out: Rs " + todayOut.toLocaleString() + "\n\n"
+         + "Please take a moment to recheck the ledger and add anything "
+         + "you may have missed.\n";
+  }
+
+  const me = Session.getActiveUser().getEmail();
+  MailApp.sendEmail(me, "🌙 Ahmed: Recheck today's ledger — Lekha", msg);
+}
+
+/* Run this ONCE manually to create BOTH daily triggers:
+   - 8 AM: payments-due reminder
+   - 8 PM: end-of-day "log/recheck" reminder            */
 function installDailyTrigger() {
+  // remove any existing triggers for these handlers (avoids duplicates)
   ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === "sendDailyReminders") ScriptApp.deleteTrigger(t);
+    const fn = t.getHandlerFunction();
+    if (fn === "sendDailyReminders" || fn === "sendEveningReminder") {
+      ScriptApp.deleteTrigger(t);
+    }
   });
+  // 8 AM — what to collect
   ScriptApp.newTrigger("sendDailyReminders")
     .timeBased().everyDays(1).atHour(8).create();
+  // 8 PM (hour 20) — recheck / log missing entries
+  ScriptApp.newTrigger("sendEveningReminder")
+    .timeBased().everyDays(1).atHour(20).create();
 }

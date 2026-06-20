@@ -58,7 +58,9 @@
   .summary{display:flex;gap:12px;margin-bottom:18px}
   .sum-card{flex:1;background:var(--card);border:3px solid var(--ink);
     border-radius:18px;padding:14px;text-align:center;box-shadow:4px 4px 0 var(--ink)}
-  .sum-card .big{font-size:26px;font-weight:800}
+  .sum-card .big{font-size:clamp(15px,5.4vw,24px);font-weight:800;
+    line-height:1.1;white-space:nowrap;letter-spacing:-.3px}
+  .sum-card .big::before{content:"Rs ";font-size:.62em;font-weight:700;opacity:.65}
   .sum-card .cap{font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
   .sum-card.in .big{color:var(--green)}
   .sum-card.out .big{color:var(--amber)}
@@ -286,6 +288,14 @@
       <button class="back" onclick="showView('home')">←</button>
       <h2><span data-t="sec_ahmed">Ahmed</span> · <span data-t="t_reminders" style="font-weight:700;font-size:16px;color:var(--muted)">Payment Reminders</span></h2>
     </div>
+    <div id="remindCard" class="row" style="border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);margin-bottom:16px;cursor:pointer" onclick="toggleReminders()">
+      <div class="av">🌙</div>
+      <div class="mid">
+        <div class="nm" data-t="rem_title">Daily 8 PM reminder</div>
+        <div class="sub" data-t="rem_sub">Nudge me to log entries & recheck the ledger</div>
+      </div>
+      <div id="remindState" class="badge">OFF</div>
+    </div>
     <div class="list" id="dueList"></div>
   </section>
 </main>
@@ -305,7 +315,7 @@
 /* ============================================================
    CONFIG  — paste your Apps Script Web App URL here
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycby_2r3xz2RTwxhi7HbjvU4YCi7F5iu9K5YFyDRSTvyQNLvCM8ehYaKL46PFGGGkwmJa/exec";
+const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
 /* ============================================================
    TRANSLATIONS  (English / Urdu / Roman Urdu)
@@ -327,7 +337,7 @@ const T = {
     online:"Connected", syncing:"Saving...",
     sec_khata:"Khata", sec_khata_sub:"Book keeping",
     sec_inv:"Inventory", sec_inv_sub:"Stock & sales",
-    sec_ahmed:"Ahmed", sec_ahmed_sub:"Reminds you about dues & updates" },
+    sec_ahmed:"Ahmed", sec_ahmed_sub:"Reminds you about dues & updates", rem_title:"Daily 8 PM reminder", rem_sub:"Nudge me to log entries & recheck the ledger" },
   ur:{ brand:"لیکھا", tag:"آپ کے خاندان کا کھاتہ", in:"آمدنی", out:"خرچہ", due:"باقی",
     t_income:"رقم وصول", t_expense:"رقم خرچ", t_stock:"اسٹاک / فروخت",
     t_udhaar:"ادھار", t_ledger:"پورا حساب", t_reminders:"ادائیگی یاد دہانی",
@@ -344,7 +354,7 @@ const T = {
     online:"منسلک", syncing:"محفوظ ہو رہا ہے...",
     sec_khata:"کھاتہ", sec_khata_sub:"حساب کتاب",
     sec_inv:"انوینٹری", sec_inv_sub:"اسٹاک اور فروخت",
-    sec_ahmed:"احمد", sec_ahmed_sub:"واجبات اور اپڈیٹس کی یاد دہانی" },
+    sec_ahmed:"احمد", sec_ahmed_sub:"واجبات اور اپڈیٹس کی یاد دہانی", rem_title:"روزانہ رات 8 بجے یاد دہانی", rem_sub:"اندراج اور حساب چیک کرنے کی یاد دہانی" },
   ru:{ brand:"Lekha", tag:"Aap ke ghar ka khaata", in:"Aamdani", out:"Kharcha", due:"Baqi",
     t_income:"Raqam Wasool", t_expense:"Raqam Kharch", t_stock:"Stock / Farokht",
     t_udhaar:"Udhaar", t_ledger:"Poora Hisaab", t_reminders:"Adaigi Yaad Dahani",
@@ -361,7 +371,7 @@ const T = {
     online:"Connected", syncing:"Save ho raha hai...",
     sec_khata:"Khata", sec_khata_sub:"Hisaab kitaab",
     sec_inv:"Inventory", sec_inv_sub:"Stock aur farokht",
-    sec_ahmed:"Ahmed", sec_ahmed_sub:"Wajibat aur updates yaad dilata hai" }
+    sec_ahmed:"Ahmed", sec_ahmed_sub:"Wajibat aur updates yaad dilata hai", rem_title:"Rozana raat 8 baje yaad dahani", rem_sub:"Entry darj aur hisaab check karne ki yaad" }
 };
 
 let LANG = localStorage.getItem("lang") || "en";
@@ -396,6 +406,7 @@ function showView(v){
   document.querySelectorAll(".view").forEach(s=>s.classList.remove("show"));
   document.getElementById("view-"+v).classList.add("show");
   document.querySelector(".fab").style.display = (v==="home") ? "flex" : "none";
+  if(v==="due") refreshRemindBadge();
   window.scrollTo(0,0);
 }
 
@@ -536,9 +547,9 @@ function render(){
     else if(e.type==="stock") tin+=e.amount;
     if(e.type==="owe" && !e.paid) tdue+=e.amount;
   });
-  document.getElementById("sumIn").textContent = (tin/1000>=1? (tin/1000).toFixed(0)+"k":tin);
-  document.getElementById("sumOut").textContent = (tout/1000>=1? (tout/1000).toFixed(0)+"k":tout);
-  document.getElementById("sumDue").textContent = (tdue/1000>=1? (tdue/1000).toFixed(0)+"k":tdue);
+  document.getElementById("sumIn").textContent = Number(tin).toLocaleString("en-PK");
+  document.getElementById("sumOut").textContent = Number(tout).toLocaleString("en-PK");
+  document.getElementById("sumDue").textContent = Number(tdue).toLocaleString("en-PK");
 
   // ledger
   const filt = document.querySelector("#ledgerFilters .on")?.dataset.f || "all";
@@ -694,6 +705,98 @@ async function testConnection(){
 }
 
 /* ============================================================
+   LOCAL EVENING REMINDER (8 PM) — phone notification.
+   Works while the installed app/tab is alive. The email from
+   Apps Script is the always-on backup if the app is closed.
+   ============================================================ */
+const EVENING_HOUR = 20; // 8 PM
+
+function reminderText(){
+  const todayKey = new Date().toISOString().slice(0,10);
+  const todays = DB.filter(e => (e.date||"").slice(0,10) === todayKey).length;
+  if(todays === 0){
+    return { title:"Lekha — koi entry nahi aaj?",
+             body:"Aaj ki aamdani, kharcha ya udhaar darj karna na bhoolein." };
+  }
+  return { title:"Lekha — hisaab check karein",
+           body:"Aaj "+todays+" entries darj huin. Ledger dobara dekh lein, kuch reh to nahi gaya." };
+}
+
+function refreshRemindBadge(){
+  const el = document.getElementById("remindState");
+  if(!el) return;
+  const on = localStorage.getItem("remindOn")==="1" &&
+             (("Notification" in window) && Notification.permission==="granted");
+  el.textContent = on ? "ON" : "OFF";
+  el.className = "badge " + (on ? "paid" : "");
+  el.style.background = on ? "" : "var(--muted)";
+  el.style.color = "#fff";
+}
+function toggleReminders(){
+  const on = localStorage.getItem("remindOn")==="1" &&
+             ("Notification" in window) && Notification.permission==="granted";
+  if(on){
+    localStorage.setItem("remindOn","0");
+    clearTimeout(eveningTimer);
+    toast("Reminder turned off.","",false);
+    refreshRemindBadge();
+  } else {
+    enableReminders().then(refreshRemindBadge);
+  }
+}
+async function enableReminders(){
+  if(!("Notification" in window)){
+    toast("Notifications not supported on this browser.", "", true); return;
+  }
+  let perm = Notification.permission;
+  if(perm === "default") perm = await Notification.requestPermission();
+  if(perm !== "granted"){
+    toast("Notifications are off.", "Allow them in browser settings to get the 8 PM reminder.", true);
+    localStorage.setItem("remindOn","0");
+    return;
+  }
+  localStorage.setItem("remindOn","1");
+  toast("Daily 8 PM reminder is on.", "", false);
+  scheduleEvening();
+}
+
+function fireReminder(){
+  const t = reminderText();
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg =>
+        reg.showNotification(t.title, { body:t.body, icon:"icon-192.png", badge:"icon-192.png", tag:"lekha-evening" })
+      );
+    } else {
+      new Notification(t.title, { body:t.body, icon:"icon-192.png" });
+    }
+  }catch(e){ /* ignore */ }
+}
+
+let eveningTimer;
+function scheduleEvening(){
+  if(localStorage.getItem("remindOn") !== "1") return;
+  if(Notification.permission !== "granted") return;
+  clearTimeout(eveningTimer);
+  const now = new Date();
+  const next = new Date();
+  next.setHours(EVENING_HOUR, 0, 0, 0);
+  if(next <= now) next.setDate(next.getDate()+1); // already past 8 PM -> tomorrow
+  const ms = next - now;
+  // guard against very long timers across sleep: re-check hourly
+  const wait = Math.min(ms, 3600000);
+  eveningTimer = setTimeout(function tick(){
+    const n = new Date();
+    if(n.getHours() === EVENING_HOUR && n.getMinutes() < 5){
+      const last = localStorage.getItem("lastEvening");
+      const key = n.toISOString().slice(0,10);
+      if(last !== key){ localStorage.setItem("lastEvening", key); fireReminder(); }
+    }
+    scheduleEvening(); // reschedule for next window
+  }, wait);
+}
+
+/* ============================================================
    PWA service worker
    ============================================================ */
 if("serviceWorker" in navigator){
@@ -703,7 +806,9 @@ if("serviceWorker" in navigator){
 /* boot */
 applyLang();
 refreshChip();
+refreshRemindBadge();
 syncSweep();
+scheduleEvening();
 // silent connection probe shortly after load (only warns if misconfigured)
 if(API_URL && !API_URL.includes("PASTE_")) setTimeout(testConnection, 1500);
 </script>

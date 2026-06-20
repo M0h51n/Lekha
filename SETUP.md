@@ -44,16 +44,28 @@ due. Total cost: **Rs 0**.
 > the phone. Adding the URL is what gives you the shared, broken-phone-proof
 > online database.
 
-## Part 3 — Turn on daily payment reminders — 1 min
+## Part 3 — Turn on the daily reminders — 1 min
 
 1. Back in Apps Script, in the function dropdown at the top, pick
    **`installDailyTrigger`** → click **Run**. Approve if asked.
-2. Done. Every morning at 8am it emails **you** the list of customers whose
-   udhaar is overdue or due within 3 days.
+2. Done. This sets up **two** daily emails to **you**:
+   - **8 AM** — the list of customers whose udhaar is overdue or due within 3 days.
+   - **8 PM** — an end-of-day nudge to log any entries you missed and recheck the
+     ledger (it also tells you how many entries were recorded today).
 
-To change the time, edit `.atHour(8)` in the code. To email someone else,
-replace `Session.getActiveUser().getEmail()` in `sendDailyReminders` with
-`"someone@gmail.com"`.
+**Important — timezone.** Triggers fire in the *script's* timezone, which may not
+be Pakistan time. Set it once: in Apps Script click the gear (Project Settings) →
+tick **"Show appsscript.json"** → open `appsscript.json` and set
+`"timeZone": "Asia/Karachi"`, save, then run `installDailyTrigger` again.
+
+To change the times, edit `.atHour(8)` (morning) and `.atHour(20)` (8 PM) in the
+code. To email someone else, replace `Session.getActiveUser().getEmail()` with
+`"someone@gmail.com"` in the reminder functions.
+
+### Phone notification at 8 PM (optional, in the app)
+Inside the app, open the **Ahmed** section and tap **Daily 8 PM reminder** to turn
+it ON. This shows a phone notification at 8 PM (works while the installed app is
+active). The 8 PM email above is the always-on backup if the app is closed.
 
 ## Part 4 — Host the app on Netlify (free) — 3 min
 
