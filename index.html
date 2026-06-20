@@ -596,16 +596,34 @@ function toast(msg, fix, isErr){
    SYNC to Google Sheets (best-effort; offline-safe)
    ============================================================ */
 async function syncOne(entry, isUpdate){
-  if(!API_URL || API_URL.includes("PASTE_")) return; // not configured yet
+  if(!API_URL || API_URL.includes("PASTE_")){
+    toast("Not connected to Google Sheet yet.", "Paste your Apps Script URL into API_URL.", true);
+    return;
+  }
   try{
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method:"POST",
       headers:{"Content-Type":"text/plain;charset=utf-8"}, // avoids CORS preflight
-      body: JSON.stringify({action: isUpdate?"update":"add", entry})
+      body: JSON.stringify({action: isUpdate?"update":"add", entry}),
+      redirect: "follow"
     });
-    entry.synced = true; persist();
+    // Apps Script returns JSON; read it to confirm the write really happened
+    let data = null;
+    try { data = await res.json(); } catch(e){ /* non-JSON = usually an auth/HTML page */ }
+
+    if(data && data.ok){
+      entry.synced = true; persist();
+    } else if(data && data.ok === false){
+      entry.synced = false; persist();
+      toast("Sheet rejected the entry: " + data.error, data.fix || "", true);
+    } else {
+      // got HTML back (login page) or empty — almost always an access problem
+      entry.synced = false; persist();
+      toast("Could not reach the Sheet.",
+            "Open your /exec URL in a browser. If it asks to log in, set deployment access to 'Anyone' and redeploy.", true);
+    }
   }catch(err){
-    // stays unsynced; will retry on next sync sweep
+    // network/offline -> keep for retry, no scary message
     entry.synced = false; persist();
   }
 }
@@ -618,6 +636,34 @@ window.addEventListener("online", syncSweep);
 setInterval(syncSweep, 60000);
 
 /* ============================================================
+   CONNECTION SELF-TEST  (call testConnection() from console,
+   or it runs once on boot to surface obvious problems)
+   ============================================================ */
+async function testConnection(){
+  if(!API_URL || API_URL.includes("PASTE_")){
+    toast("No Sheet URL set.", "Paste your /exec URL into API_URL in index.html.", true);
+    return;
+  }
+  try{
+    const res = await fetch(API_URL + (API_URL.includes("?")?"&":"?") + "action=list",
+                            {redirect:"follow"});
+    const txt = await res.text();
+    if(txt.trim().startsWith("{")){
+      const d = JSON.parse(txt);
+      if(d.ok){ toast("Connected ✓ Sheet is reachable.", "", false); return true; }
+      toast("Sheet error: " + d.error, d.fix||"", true); return false;
+    }
+    // got HTML instead of JSON => login wall / wrong access
+    toast("Sheet is not public.",
+          "Deploy → Manage deployments → access = Anyone, then redeploy.", true);
+    return false;
+  }catch(err){
+    toast("Cannot reach the URL.", "Check the URL is the /exec link, not /dev.", true);
+    return false;
+  }
+}
+
+/* ============================================================
    PWA service worker
    ============================================================ */
 if("serviceWorker" in navigator){
@@ -627,6 +673,8 @@ if("serviceWorker" in navigator){
 /* boot */
 applyLang();
 syncSweep();
+// silent connection probe shortly after load (only warns if misconfigured)
+if(API_URL && !API_URL.includes("PASTE_")) setTimeout(testConnection, 1500);
 </script>
 </body>
 </html>
